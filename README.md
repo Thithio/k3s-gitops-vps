@@ -1,5 +1,7 @@
 # k3s-gitops-vps
 
+[![CI](https://github.com/Thithio/k3s-gitops-vps/actions/workflows/ci.yml/badge.svg)](https://github.com/Thithio/k3s-gitops-vps/actions/workflows/ci.yml) ![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)
+
 Template para subir uma aplicação web numa VPS com tudo declarado no Git: a VM por OpenTofu, o sistema por Ansible e o cluster por Argo CD. Kubernetes de nó único com k3s, para quem quer GitOps sem pagar um cluster gerenciado.
 
 A ideia é poder perder a máquina e recriar tudo a partir do repositório. Os dados são a exceção: eles só voltam de backup (ver "O que fica fora").
