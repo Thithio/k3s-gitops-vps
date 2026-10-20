@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Lint e render do chart
+        run: |
+          helm lint helm/app -f helm/app/values-homolog.yaml
+          helm template app helm/app -f helm/app/values-homolog.yaml > /dev/null
+          helm template app helm/app --set postgres.enabled=false > /dev/null
+
+  opentofu:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tofu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+      - name: Formato e validação
+        run: |
+          tofu fmt -check -recursive
+          tofu init -backend=false -input=false
+          tofu validate
+
+  ansible:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar Ansible e coleções
+        run: |
+          pip install ansible-core
+          ansible-galaxy collection install community.general ansible.posix
+      - name: Sintaxe dos playbooks
+        run: |
+          printf '[homolog]\nhomolog ansible_host=203.0.113.10\n' > inventory/homolog.ini
+          cp group_vars/homolog/vault.example.yml group_vars/homolog/vault.yml
+          echo ci > .vault-pass
+          ansible-playbook site.yml --syntax-check
+          ansible-playbook admin-user.yml --syntax-check
