@@ -1,0 +1,19 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "app.dbCluster" . }}
+  labels: {{- include "app.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"   # banco antes da aplicação
+spec:
+  instances: {{ .Values.postgres.instances }}
+  imageName: {{ .Values.postgres.imageName }}
+  storage:
+    size: {{ .Values.postgres.storage }}
+  resources: {{- toYaml .Values.postgres.resources | nindent 4 }}
+  bootstrap:
+    initdb:
+      database: app
+      owner: app      # a aplicação conecta com este usuário, que não é superuser
+{{- end }}

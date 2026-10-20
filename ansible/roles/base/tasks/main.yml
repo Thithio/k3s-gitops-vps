@@ -1,0 +1,79 @@
+- name: Pacotes do sistema atualizados
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: safe
+    cache_valid_time: 3600
+
+- name: Pacotes básicos
+  ansible.builtin.apt:
+    name: [curl, ca-certificates, unattended-upgrades, fail2ban, jq]
+    state: present
+
+- name: Atualizações de segurança automáticas
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+    mode: "0644"
+
+- name: Fuso horário
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+- name: Servidor SSH presente?
+  ansible.builtin.stat:
+    path: /etc/ssh/sshd_config.d
+  register: sshd_dir
+
+- name: SSH só com chave e sem root
+  when: sshd_dir.stat.exists
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-hardening.conf
+    content: |
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin no
+    mode: "0644"
+  notify: Reinicia ssh
+
+# Firewall na própria VM (vale também para provedor sem security group).
+# Regras do k3s: https://docs.k3s.io/installation/requirements
+- name: UFW instalado
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: "UFW: SSH liberado antes de ligar (evita trancar o acesso)"
+  community.general.ufw:
+    rule: limit
+    port: "22"
+    proto: tcp
+    from_ip: "{{ item }}"
+  loop: "{{ admin_cidrs }}"
+
+- name: "UFW: HTTP/HTTPS (Traefik)"
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: ["80", "443"]
+
+- name: "UFW: redes de pods e services do k3s"
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ item }}"
+  loop: ["10.42.0.0/16", "10.43.0.0/16"]
+
+- name: "UFW: tráfego encaminhado para os pods (o ServiceLB publica 80/443 via DNAT)"
+  community.general.ufw:
+    rule: allow
+    route: true
+    to_ip: "{{ item }}"
+  loop: ["10.42.0.0/16", "10.43.0.0/16"]
+
+- name: "UFW: nega entrada por padrão e liga"
+  community.general.ufw:
+    state: enabled
+    default: deny
+    direction: incoming

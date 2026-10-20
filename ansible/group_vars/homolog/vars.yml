@@ -1,0 +1,21 @@
+k3s_version: v1.36.4+k3s1          # fixe a versão; troque de propósito, não por acaso
+argocd_chart_version: 10.9.2        # mesmo valor de platform/versions.env
+timezone: America/Sao_Paulo
+
+# Acesso administrativo (o role admin_user cria este usuário).
+admin_user: deploy
+admin_ssh_public_key_file: ~/.ssh/SUA_CHAVE.pub
+# Origens que podem abrir SSH (UFW). Restrinja ao seu IP se ele for fixo.
+admin_cidrs: ["0.0.0.0/0"]
+
+# Aplicação
+app_namespace: app
+app_secret_name: app-secrets
+repo_ssh_url: git@github.com:SEU_USUARIO/SEU_REPO.git
+
+# Segredos (group_vars/homolog/vault.yml, cifrado com ansible-vault). Ver vault.example.yml.
+app_secrets: "{{ vault_app_secrets }}"
+registry_server: ghcr.io
+registry_user: "{{ vault_registry_user | default('') }}"
+registry_token: "{{ vault_registry_token | default('') }}"
+argocd_deploy_key: "{{ vault_argocd_deploy_key }}"

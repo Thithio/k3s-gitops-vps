@@ -1,0 +1,7 @@
+# Uma vez, numa VPS nova que só tem root:
+#   ansible-playbook admin-user.yml -e ansible_user=root
+- name: Usuário administrativo
+  hosts: homolog
+  become: true
+  roles:
+    - admin_user

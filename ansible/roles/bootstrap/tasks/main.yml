@@ -1,0 +1,89 @@
+# Argo CD + segredos + app-of-apps. Depois disso, tudo vem do git.
+- name: Helm
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  args:
+    executable: /bin/bash
+    creates: /usr/local/bin/helm
+
+- name: Versão do Argo CD instalada
+  ansible.builtin.shell: |
+    set -o pipefail
+    helm list -n argocd -o json | jq -r '.[] | select(.name=="argocd") | .chart'
+  args:
+    executable: /bin/bash
+  environment: { KUBECONFIG: /etc/rancher/k3s/k3s.yaml }
+  register: argocd_current
+  changed_when: false
+
+- name: Argo CD (versão fixada)
+  ansible.builtin.shell: |
+    helm repo add argo https://argoproj.github.io/argo-helm --force-update >/dev/null
+    helm upgrade --install argocd argo/argo-cd --version {{ argocd_chart_version }} \
+      -n argocd --create-namespace --wait
+  environment: { KUBECONFIG: /etc/rancher/k3s/k3s.yaml }
+  when: argocd_current.stdout != "argo-cd-" + argocd_chart_version
+  changed_when: true
+
+- name: Namespace da aplicação
+  ansible.builtin.shell: k3s kubectl create namespace {{ app_namespace }} --dry-run=client -o yaml | k3s kubectl apply -f -
+  changed_when: false
+
+# O Secret é gerado num arquivo só do root e aplicado; o valor nunca passa pela linha de comando.
+- name: Manifesto dos segredos da aplicação
+  ansible.builtin.copy:
+    dest: /root/app-secrets.yaml
+    mode: "0600"
+    content: >-
+      {{ {'apiVersion': 'v1', 'kind': 'Secret', 'type': 'Opaque',
+          'metadata': {'name': app_secret_name, 'namespace': app_namespace},
+          'stringData': app_secrets} | to_nice_yaml }}
+  no_log: true
+  register: app_secret_file
+
+- name: Aplica os segredos da aplicação
+  ansible.builtin.command: k3s kubectl apply -f /root/app-secrets.yaml
+  when: app_secret_file.changed
+  changed_when: true
+
+- name: Credencial para baixar imagens privadas
+  ansible.builtin.shell: |
+    k3s kubectl -n {{ app_namespace }} create secret docker-registry registry-pull \
+      --docker-server="{{ registry_server }}" --docker-username="$REGISTRY_USER" --docker-password="$REGISTRY_TOKEN" \
+      --dry-run=client -o yaml | k3s kubectl apply -f -
+  environment:
+    REGISTRY_USER: "{{ registry_user }}"
+    REGISTRY_TOKEN: "{{ registry_token }}"
+  no_log: true
+  changed_when: false
+  when: registry_token | length > 0
+  tags: [gitops]
+
+- name: Acesso do Argo CD ao repositório (deploy key somente leitura)
+  ansible.builtin.shell: |
+    k3s kubectl -n argocd create secret generic repo-app \
+      --from-literal=type=git --from-literal=url="{{ repo_ssh_url }}" \
+      --from-literal=sshPrivateKey="$DEPLOY_KEY" \
+      --dry-run=client -o yaml \
+    | k3s kubectl label --local -f - argocd.argoproj.io/secret-type=repository -o yaml \
+    | k3s kubectl apply -f -
+  environment:
+    DEPLOY_KEY: "{{ argocd_deploy_key }}"
+  no_log: true
+  changed_when: false
+  tags: [gitops]
+
+- name: App-of-apps
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../argocd/root.yaml"
+    dest: /root/argocd-root.yaml
+    mode: "0600"
+  register: root_app
+  tags: [gitops]
+
+- name: Aplica o app-of-apps
+  ansible.builtin.command: k3s kubectl apply -f /root/argocd-root.yaml
+  when: root_app.changed
+  changed_when: true
+  tags: [gitops]

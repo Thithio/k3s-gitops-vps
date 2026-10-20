@@ -1,0 +1,8 @@
+# Segredos e estado local: nunca no git
+ansible/.vault-pass
+ansible/.kubeconfig-*
+ansible/inventory/*.ini
+ansible/group_vars/*/vault.yml
+tofu/terraform.tfvars
+tofu/.terraform/
+tofu/*.tfstate*

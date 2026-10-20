@@ -1,0 +1,8 @@
+service:
+  type: LoadBalancer        # no k3s, o ServiceLB publica 80/443 no IP da VM
+ports:
+  web:
+    allowACMEByPass: true   # o desafio HTTP-01 do Let's Encrypt não é redirecionado
+    http:
+      redirections:
+        entryPoint: { to: websecure, scheme: https, permanent: true }

@@ -1,0 +1,23 @@
+# Usuário administrativo com sudo e acesso só por chave. Roda como root na primeira vez
+# (VPS que vem só com root): `ansible-playbook admin-user.yml -e ansible_user=root`.
+# Depois disso o resto roda com este usuário e o role `base` desliga o login de root.
+- name: Usuário administrativo
+  ansible.builtin.user:
+    name: "{{ admin_user }}"
+    shell: /bin/bash
+    groups: [sudo]
+    append: true
+    create_home: true
+
+- name: Chave SSH do administrador
+  ansible.posix.authorized_key:
+    user: "{{ admin_user }}"
+    key: "{{ lookup('file', admin_ssh_public_key_file) }}"
+    exclusive: false
+
+- name: Sudo sem senha (o usuário não tem senha; o acesso é só por chave)
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-{{ admin_user }}"
+    content: "{{ admin_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    mode: "0440"
+    validate: visudo -cf %s

@@ -1,0 +1,43 @@
+- name: Diretório do k3s
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    mode: "0755"
+
+- name: Configuração do k3s
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    mode: "0600"
+  register: k3s_config
+
+- name: Versão instalada
+  ansible.builtin.command: k3s --version
+  register: k3s_installed
+  changed_when: false
+  failed_when: false
+
+- name: Instala/atualiza o k3s na versão fixada
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="{{ k3s_version }}" sh -s - server
+  args:
+    executable: /bin/bash
+  when: k3s_installed.rc != 0 or k3s_version not in k3s_installed.stdout
+  changed_when: true
+
+- name: Reinicia o k3s se a configuração mudou
+  ansible.builtin.service:
+    name: k3s
+    state: restarted
+  when: k3s_config.changed and k3s_installed.rc == 0
+
+- name: Espera o nó ficar pronto
+  ansible.builtin.command: k3s kubectl wait --for=condition=Ready node --all --timeout=300s
+  changed_when: false
+
+- name: "Traz o kubeconfig (usar com túnel SSH: a porta 6443 não fica aberta)"
+  ansible.builtin.fetch:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "{{ playbook_dir }}/.kubeconfig-{{ inventory_hostname }}"
+    flat: true

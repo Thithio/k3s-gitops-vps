@@ -1,0 +1,4 @@
+# Copie para terraform.tfvars (fora do git) e preencha. A API key vai por variável de ambiente:
+#   export TF_VAR_mgc_api_key=...
+ssh_public_key = "ssh-ed25519 AAAA... voce@maquina"
+admin_cidrs    = ["SEU.IP.PUBLICO/32"]

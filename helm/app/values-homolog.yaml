@@ -1,0 +1,4 @@
+# Sem domínio ainda? Use <ip-com-traços>.sslip.io, ex.: app.203-0-113-10.sslip.io
+host: app.example.com
+image:
+  tag: latest

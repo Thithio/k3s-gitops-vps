@@ -1,0 +1,10 @@
+# Sobe o servidor do zero (idempotente: pode rodar de novo).
+#   ansible-playbook site.yml                    # tudo
+#   ansible-playbook site.yml --tags base,k3s    # só o servidor, sem Argo CD e segredos
+- name: Servidor k3s com GitOps
+  hosts: homolog
+  become: true
+  roles:
+    - { role: base, tags: [base] }
+    - { role: k3s, tags: [k3s] }
+    - { role: bootstrap, tags: [bootstrap] }

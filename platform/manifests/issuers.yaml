@@ -1,0 +1,20 @@
+# ClusterIssuers do cert-manager: "letsencrypt" no servidor, "selfsigned" para teste local.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: voce@example.com   # avisos de expiração do Let's Encrypt
+    privateKeySecretRef: { name: letsencrypt-account }
+    solvers:
+      - http01:
+          ingress: { ingressClassName: traefik }
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned
+spec:
+  selfSigned: {}

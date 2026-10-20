@@ -1,0 +1,16 @@
+# 1. cp vault.example.yml vault.yml  2. preencha  3. ansible-vault encrypt vault.yml
+# A senha do vault fica em ansible/.vault-pass (fora do git).
+
+# Variáveis de ambiente secretas da aplicação. Viram o Secret "app-secrets".
+vault_app_secrets:
+  SECRET_KEY: "gere com: python3 -c 'import secrets; print(secrets.token_urlsafe(50))'"
+
+# Só se as imagens forem privadas: token com read:packages.
+vault_registry_user: ""
+vault_registry_token: ""
+
+# Chave privada de uma deploy key somente leitura do repositório (GitHub > Settings > Deploy keys).
+vault_argocd_deploy_key: |
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  ...
+  -----END OPENSSH PRIVATE KEY-----
